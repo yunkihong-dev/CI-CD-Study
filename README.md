@@ -173,73 +173,16 @@ pipeline {
 
 ## 📁 프로젝트 구조
 
-<details> <summary>📂 디렉토리 트리 (펼치기)</summary>
-
 ```
-├─step04_gradleBuild
-│  ├─.gradle
-│  │  ├─8.14.3
-│  │  │  ├─checksums
-│  │  │  ├─executionHistory
-│  │  │  ├─expanded
-│  │  │  ├─fileChanges
-│  │  │  ├─fileHashes
-│  │  │  └─vcsMetadata
-│  │  ├─buildOutputCleanup
-│  │  └─vcs-1
-│  ├─.settings
-│  ├─bin
-│  │  ├─main
-│  │  │  ├─com
-│  │  │  │  └─fisa
-│  │  │  │      └─app
-│  │  │  │          └─controller
-│  │  │  └─templates
-│  │  └─test
-│  │      └─com
-│  │          └─fisa
-│  │              └─app
-│  ├─gradle
-│  │  └─wrapper
-│  └─src
-│      ├─main
-│      │  ├─java
-│      │  │  └─com
-│      │  │      └─fisa
-│      │  │          └─app
-│      │  │              └─controller
-│      │  └─resources
-│      │      ├─static
-│      │      └─templates
-│      └─test
-│          └─java
-│              └─com
-│                  └─fisa
-│                      └─app
-└─step10-CICD
-    ├─.mvn
-    │  └─wrapper
-    ├─.settings
-    ├─src
-    │  ├─main
-    │  │  ├─java
-    │  │  │  └─com
-    │  │  │      └─example
-    │  │  │          └─demo
-    │  │  └─resources
-    │  │      ├─static
-    │  │      └─templates
-    │  └─test
-    │      └─java
-    │          └─com
-    │              └─example
-    │                  └─demo
-    └─target
-        └─...
+appjardir
+├── app_20250916_170006.jar
+├── app_latest.jar -> app_20250916_170006.jar
+├── app.log
+├── auto_deploy.sh
+└── deploy.log
 
 ```
 
-</details>
 
 ---
 
@@ -311,38 +254,11 @@ java -jar app_20231216_120614.jar
 
 ```
 
-## 🚢 배포 확장
-
-<details>
-<summary><strong>🐳 Docker 배포 스테이지 추가</strong></summary>
-
-```groovy
-stage('Deploy to Docker') {
-  steps {
-    sh '''
-      # 기존 컨테이너 정리
-      docker stop spring-app || true
-      docker rm spring-app || true
-
-      # 새 컨테이너 실행
-      docker run -d \\
-        --name spring-app \\
-        -p 8080:8080 \\
-        -v $(pwd)/appjardir:/app \\
-        eclipse-temurin:17-jre \\
-        java -jar /app/app_latest.jar
-
-      echo "🚀 Application deployed at <http://localhost:8080>"
-    '''
-  }
-}
-
-```
-
-</details>
-
 ---
 ## ⚙️ 자동 배포 스크립트 (`auto_deploy.sh`)
+
+![ezgif-8f959a8261ea3f](https://github.com/user-attachments/assets/0a319205-7838-4f0c-9651-8f43f7c2f665)
+
 
 CI/CD 파이프라인으로 JAR 파일이 생성된 이후, 서버에서 **새로운 JAR이 감지되면 자동으로 서비스 재시작**하도록 하는 스크립트입니다.
 
@@ -350,7 +266,9 @@ CI/CD 파이프라인으로 JAR 파일이 생성된 이후, 서버에서 **새�
 
 ### 📂 위치
 
-/home/ubuntu/appjardir
+```
+/home/user/appjardir
+```
 
 ### 📝 스크립트 파일
 
@@ -358,52 +276,52 @@ CI/CD 파이프라인으로 JAR 파일이 생성된 이후, 서버에서 **새�
 
 ```bash
 #!/bin/bash
-
-cd /home/ubuntu/appjardir
-
+cd /home/user/appjardir
 echo "자동 배포 서비스 시작..."
-
 LAST_CHECK=0
+CURRENT_JAR=""
 
 kill_app() {
-  echo "기존 앱 완전 종료 시도..."
-
-  PID_PORT=$(lsof -t -i:8080 2>/dev/null)
-  if [ ! -z "$PID_PORT" ]; then
-    echo "포트 8080 사용 중인 PID: $PID_PORT 종료"
-    kill $PID_PORT
-    sleep 2
-    kill -9 $PID_PORT 2>/dev/null
-  fi
-
-  pkill -f "java.*app_latest.jar"
-  rm -f app.pid
-
-  echo "✅ 종료 완료"
+    echo "기존 앱 완전 종료 시도..."
+    # 포트 기반 종료
+    PID_PORT=$(lsof -t -i:8080 2>/dev/null)
+    if [ ! -z "$PID_PORT" ]; then
+        echo "포트 8080 사용 중인 PID: $PID_PORT 종료"
+        kill $PID_PORT
+        sleep 2
+        kill -9 $PID_PORT 2>/dev/null
+    fi
+    # JAR 이름으로 종료
+    if [ ! -z "$CURRENT_JAR" ]; then
+        pkill -f "java.*$CURRENT_JAR"
+    fi
+    echo "✅ 종료 완료"
 }
 
 start_app() {
-  echo "새 앱 시작 중..."
-  java -jar app_latest.jar > app.log 2>&1 &
-  NEW_PID=$!
-  echo $NEW_PID > app.pid
-  echo "✅ 앱 시작됨 (PID: $NEW_PID)"
+    echo "새 앱 시작 중..."
+    if [ -L app_latest.jar ]; then
+        CURRENT_JAR=$(readlink app_latest.jar)
+    else
+        CURRENT_JAR="app_latest.jar"
+    fi
+    java -jar app_latest.jar > app.log 2>&1 &
+    echo "✅ 앱 시작됨 (JAR: $CURRENT_JAR)"
 }
 
 while true; do
-  if [ -f app_latest.jar ]; then
-    CURRENT_TIME=$(stat -c %Y app_latest.jar)
-    if [ $CURRENT_TIME -gt $LAST_CHECK ]; then
-      echo "새로운 JAR 감지됨! ($(date -d @$CURRENT_TIME))"
-      kill_app
-      sleep 3
-      start_app
-      LAST_CHECK=$CURRENT_TIME
+    if [ -f app_latest.jar ]; then
+        CURRENT_TIME=$(stat -c %Y app_latest.jar)
+        if [ $CURRENT_TIME -gt $LAST_CHECK ]; then
+            echo "새로운 JAR 감지됨!"
+            kill_app
+            sleep 3
+            start_app
+            LAST_CHECK=$CURRENT_TIME
+        fi
     fi
-  fi
-  sleep 5  # 5초마다 체크
+    sleep 5
 done
-
 ```
 
 ### 🚀 실행 방법
@@ -420,15 +338,16 @@ nohup ./auto_deploy.sh > deploy.log 2>&1 &
 2. **기존 프로세스 종료**
     - 포트(`8080`) 점유 프로세스 및 `app_latest.jar` 실행 중인 프로세스를 종료.
 3. **새 JAR 실행**
-    - `java -jar app_latest.jar` 실행 후 `app.pid` 파일에 PID 기록.
+    - `java -jar app_latest.jar` 실행. 심볼릭 링크가 걸린 실제 JAR 이름(`app_YYYYMMDD_HHMMSS.jar`)까지 추적해 관리.
 4. **지속 모니터링**
-    - 5초마다 JAR 파일 변경 여부를 체크해, 새 버전이 올라오면 다시 재시작.
+    - 5초마다 JAR 파일 변경 여부를 체크해, 새로운 빌드가 반영되면 즉시 재시작.
 
 ### 🎯 효과
 
-- **빠른 배포**: 새 JAR 탐지 즉시 자동 반영
+- **빠른 배포**: 새 JAR 탐지 즉시 반영
 - **운영 단순화**: 매번 수동으로 kill → jar 실행 작업 불필요
-- **로그 관리**: `deploy.log`, `app.log`로 배포/실행 이력 확인 가능
+- **버전 추적**: 심볼릭 링크가 가리키는 실제 JAR(`app_YYYYMMDD_HHMMSS.jar`)을 확인 가능
+- **로그 관리**: `deploy.log`, `app.log`를 통해 배포/실행 이력 확인 가능
 
 ---
 
@@ -440,6 +359,7 @@ nohup ./auto_deploy.sh > deploy.log 2>&1 &
 | **Java 버전 문제** | Jenkins 컨테이너에 설치된 JDK 버전과 프로젝트의 요구 버전(Spring Boot 3.x → JDK 17 이상)이 불일치 | 환경 변수 `JAVA_HOME`을 `/usr/lib/jvm/java-17-openjdk-amd64`로 지정하고, PATH에도 반영해 빌드 시 올바른 JDK를 사용하도록 설정 |
 | **Gradle 실행 권한 오류 (`gradlew: Permission denied`)** | 프로젝트에 포함된 `gradlew` 파일이 실행 권한을 갖고 있지 않음 | Jenkins 빌드 스텝에서 `chmod +x ./gradlew` 명령어를 추가하여 실행 권한을 부여 |
 | **Bind Mount 경로 접근 실패** | 컨테이너와 호스트 간 UID/GID 불일치 또는 호스트 디렉토리 권한 제한 | 호스트 디렉토리 권한을 UID 1000 (Jenkins 기본 계정)으로 변경하거나 `chmod 755` 이상으로 퍼미션을 수정 |
+| **잘못된 배포 확장 시도 (Docker Run 직접 실행)** | Jenkins 파이프라인에 `docker run` 스테이지를 넣어 컨테이너로 바로 실행하는 방법을 테스트했으나, 운영 환경에서는 JAR 교체·롤백 관리가 어렵고 컨테이너 충돌 문제가 발생 | 단일 서버 환경에서는 `auto_deploy.sh` 스크립트를 통한 JAR 교체 방식이 더 안정적이고 단순 |
 
 ---
 
