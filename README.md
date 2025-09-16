@@ -342,6 +342,95 @@ stage('Deploy to Docker') {
 </details>
 
 ---
+## ⚙️ 자동 배포 스크립트 (`auto_deploy.sh`)
+
+CI/CD 파이프라인으로 JAR 파일이 생성된 이후, 서버에서 **새로운 JAR이 감지되면 자동으로 서비스 재시작**하도록 하는 스크립트입니다.
+
+이 스크립트는 운영 환경에서 배포를 단순화하고, 사람이 직접 서버에 접속해서 프로세스를 내렸다가 올리는 과정을 줄여줍니다.
+
+### 📂 위치
+
+/home/ubuntu/appjardir
+
+### 📝 스크립트 파일
+
+**파일명:** `auto_deploy.sh`
+
+```bash
+#!/bin/bash
+
+cd /home/ubuntu/appjardir
+
+echo "자동 배포 서비스 시작..."
+
+LAST_CHECK=0
+
+kill_app() {
+  echo "기존 앱 완전 종료 시도..."
+
+  PID_PORT=$(lsof -t -i:8080 2>/dev/null)
+  if [ ! -z "$PID_PORT" ]; then
+    echo "포트 8080 사용 중인 PID: $PID_PORT 종료"
+    kill $PID_PORT
+    sleep 2
+    kill -9 $PID_PORT 2>/dev/null
+  fi
+
+  pkill -f "java.*app_latest.jar"
+  rm -f app.pid
+
+  echo "✅ 종료 완료"
+}
+
+start_app() {
+  echo "새 앱 시작 중..."
+  java -jar app_latest.jar > app.log 2>&1 &
+  NEW_PID=$!
+  echo $NEW_PID > app.pid
+  echo "✅ 앱 시작됨 (PID: $NEW_PID)"
+}
+
+while true; do
+  if [ -f app_latest.jar ]; then
+    CURRENT_TIME=$(stat -c %Y app_latest.jar)
+    if [ $CURRENT_TIME -gt $LAST_CHECK ]; then
+      echo "새로운 JAR 감지됨! ($(date -d @$CURRENT_TIME))"
+      kill_app
+      sleep 3
+      start_app
+      LAST_CHECK=$CURRENT_TIME
+    fi
+  fi
+  sleep 5  # 5초마다 체크
+done
+
+```
+
+### 🚀 실행 방법
+
+```bash
+# 백그라운드 실행 + 로그 기록
+nohup ./auto_deploy.sh > deploy.log 2>&1 &
+```
+
+### 📌 동작 원리
+
+1. **`app_latest.jar` 감지**
+    - Jenkins가 빌드 후 `app_latest.jar` 심볼릭 링크를 갱신하면 스크립트가 이를 인식.
+2. **기존 프로세스 종료**
+    - 포트(`8080`) 점유 프로세스 및 `app_latest.jar` 실행 중인 프로세스를 종료.
+3. **새 JAR 실행**
+    - `java -jar app_latest.jar` 실행 후 `app.pid` 파일에 PID 기록.
+4. **지속 모니터링**
+    - 5초마다 JAR 파일 변경 여부를 체크해, 새 버전이 올라오면 다시 재시작.
+
+### 🎯 효과
+
+- **빠른 배포**: 새 JAR 탐지 즉시 자동 반영
+- **운영 단순화**: 매번 수동으로 kill → jar 실행 작업 불필요
+- **로그 관리**: `deploy.log`, `app.log`로 배포/실행 이력 확인 가능
+
+---
 
 ## 🛠️ 트러블슈팅
 
@@ -373,3 +462,19 @@ stage('Deploy to Docker') {
     - 이는 추후 Kubernetes 기반 확장에도 바로 연결될 수 있음.
 
 ---
+
+## 📝 결론 및 확장
+
+이 프로젝트는 **Spring Boot 애플리케이션을 Jenkins + Docker 기반으로 완전 자동화 빌드/배포**하는 과정을 다루었습니다.
+
+GitHub 푸시 → Jenkins 빌드 → JAR 버전 관리 → 자동 배포 스크립트까지의 흐름을 통해, **개발자가 코드 작성에만 집중할 수 있는 CI/CD 환경**을 구현했습니다.
+
+앞으로 확장 가능한 방향은 다음과 같습니다:
+
+- **Kubernetes 연동**: Jenkins 빌드 결과를 K8s 클러스터에 자동 배포하도록 확장
+- **멀티환경 지원**: dev/staging/prod 환경 분리 및 파이프라인 고도화
+- **모니터링 강화**: Prometheus/Grafana 기반 빌드·배포 지표 시각화
+- **알림 연동**: Slack/Teams에 빌드 및 배포 결과 자동 알림
+
+👉 이를 통해 **실제 현업에서도 활용 가능한 CI/CD 파이프라인**으로 발전시킬 수 있습니다.
+
