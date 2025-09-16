@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>똥피하기 게임</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #87CEEB, #98FB98);
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .game-container {
+            position: relative;
+            width: 400px;
+            height: 600px;
+            background: #87CEEB;
+            border: 3px solid #4169E1;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+
+        .game-area {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, #87CEEB 0%, #98FB98 100%);
+        }
+
+        .player {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 40px;
+            font-size: 35px;
+            transition: left 0.1s;
+            z-index: 10;
+        }
+
+        .poop {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            font-size: 25px;
+            z-index: 5;
+        }
+
+        .ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            z-index: 20;
+        }
+
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255,255,255,0.95);
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            z-index: 100;
+            display: none;
+        }
+
+        .start-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255,255,255,0.95);
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            z-index: 100;
+        }
+
+        button {
+            background: linear-gradient(45deg, #FF6B6B, #FF8E53);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin: 10px;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 20;
+        }
+
+        .control-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            font-size: 20px;
+            background: rgba(255,255,255,0.3);
+            border: 2px solid rgba(255,255,255,0.5);
+            color: white;
+            backdrop-filter: blur(5px);
+        }
+
+        .clouds {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .cloud {
+            position: absolute;
+            color: white;
+            font-size: 30px;
+            opacity: 0.7;
+            animation: float 15s infinite linear;
+        }
+
+        @keyframes float {
+            from { transform: translateX(-50px); }
+            to { transform: translateX(450px); }
+        }
+
+        .power-up {
+            position: absolute;
+            width: 25px;
+            height: 25px;
+            font-size: 20px;
+            z-index: 5;
+            animation: sparkle 1s infinite alternate;
+        }
+
+        @keyframes sparkle {
+            from { transform: scale(1); }
+            to { transform: scale(1.2); }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-area" id="gameArea">
+            <div class="clouds" id="clouds"></div>
+            
+            <div class="ui">
+                <div>점수: <span id="score">0</span></div>
+                <div>생명: <span id="lives">3</span> ❤️</div>
+            </div>
+
+            <div class="player" id="player">🧑</div>
+
+            <div class="start-screen" id="startScreen">
+                <h2>🚽 똥피하기 게임 🚽</h2>
+                <p>화살표 키나 터치로 이동하세요!</p>
+                <p>⭐를 먹으면 점수 보너스!</p>
+                <button onclick="startGame()">게임 시작</button>
+            </div>
+
+            <div class="game-over" id="gameOver">
+                <h2>게임 오버!</h2>
+                <p>최종 점수: <span id="finalScore">0</span></p>
+                <button onclick="restartGame()">다시 시작</button>
+            </div>
+
+            <div class="controls">
+                <button class="control-btn" id="leftBtn">←</button>
+                <button class="control-btn" id="rightBtn">→</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let gameState = {
+            isRunning: false,
+            score: 0,
+            lives: 3,
+            playerPosition: 180,
+            speed: 2,
+            spawnRate: 0.02,
+            powerUpRate: 0.005
+        };
+
+        let gameElements = {
+            player: document.getElementById('player'),
+            gameArea: document.getElementById('gameArea'),
+            startScreen: document.getElementById('startScreen'),
+            gameOver: document.getElementById('gameOver'),
+            scoreDisplay: document.getElementById('score'),
+            livesDisplay: document.getElementById('lives'),
+            finalScore: document.getElementById('finalScore')
+        };
+
+        let gameObjects = {
+            poops: [],
+            powerUps: [],
+            clouds: []
+        };
+
+        // 키보드 이벤트
+        document.addEventListener('keydown', (e) => {
+            if (!gameState.isRunning) return;
+            
+            if (e.key === 'ArrowLeft' && gameState.playerPosition > 0) {
+                gameState.playerPosition -= 20;
+            } else if (e.key === 'ArrowRight' && gameState.playerPosition < 360) {
+                gameState.playerPosition += 20;
+            }
+            updatePlayerPosition();
+        });
+
+        // 터치 컨트롤
+        document.getElementById('leftBtn').addEventListener('click', () => {
+            if (gameState.isRunning && gameState.playerPosition > 0) {
+                gameState.playerPosition -= 20;
+                updatePlayerPosition();
+            }
+        });
+
+        document.getElementById('rightBtn').addEventListener('click', () => {
+            if (gameState.isRunning && gameState.playerPosition < 360) {
+                gameState.playerPosition += 20;
+                updatePlayerPosition();
+            }
+        });
+
+        function updatePlayerPosition() {
+            gameElements.player.style.left = gameState.playerPosition + 'px';
+        }
+
+        function createPoop() {
+            const poop = document.createElement('div');
+            poop.className = 'poop';
+            poop.innerHTML = '💩';
+            poop.style.left = Math.random() * 360 + 'px';
+            poop.style.top = '0px';
+            gameElements.gameArea.appendChild(poop);
+            gameObjects.poops.push({
+                element: poop,
+                x: parseInt(poop.style.left),
+                y: 0
+            });
+        }
+
+        function createPowerUp() {
+            const powerUp = document.createElement('div');
+            powerUp.className = 'power-up';
+            powerUp.innerHTML = '⭐';
+            powerUp.style.left = Math.random() * 360 + 'px';
+            powerUp.style.top = '0px';
+            gameElements.gameArea.appendChild(powerUp);
+            gameObjects.powerUps.push({
+                element: powerUp,
+                x: parseInt(powerUp.style.left),
+                y: 0
+            });
+        }
+
+        function createCloud() {
+            const cloud = document.createElement('div');
+            cloud.className = 'cloud';
+            cloud.innerHTML = '☁️';
+            cloud.style.top = Math.random() * 200 + 'px';
+            cloud.style.left = '-50px';
+            document.getElementById('clouds').appendChild(cloud);
+            
+            setTimeout(() => {
+                if (cloud.parentNode) {
+                    cloud.parentNode.removeChild(cloud);
+                }
+            }, 15000);
+        }
+
+        function checkCollisions() {
+            const playerRect = {
+                x: gameState.playerPosition,
+                y: 540,
+                width: 40,
+                height: 40
+            };
+
+            // 똥과 충돌 체크
+            gameObjects.poops.forEach((poop, index) => {
+                const poopRect = {
+                    x: poop.x,
+                    y: poop.y,
+                    width: 30,
+                    height: 30
+                };
+
+                if (isColliding(playerRect, poopRect)) {
+                    gameState.lives--;
+                    gameElements.livesDisplay.textContent = gameState.lives;
+                    
+                    // 똥 제거
+                    poop.element.remove();
+                    gameObjects.poops.splice(index, 1);
+
+                    if (gameState.lives <= 0) {
+                        endGame();
+                    }
+                }
+            });
+
+            // 파워업과 충돌 체크
+            gameObjects.powerUps.forEach((powerUp, index) => {
+                const powerUpRect = {
+                    x: powerUp.x,
+                    y: powerUp.y,
+                    width: 25,
+                    height: 25
+                };
+
+                if (isColliding(playerRect, powerUpRect)) {
+                    gameState.score += 50;
+                    gameElements.scoreDisplay.textContent = gameState.score;
+                    
+                    // 파워업 제거
+                    powerUp.element.remove();
+                    gameObjects.powerUps.splice(index, 1);
+                }
+            });
+        }
+
+        function isColliding(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+
+        function updateGame() {
+            if (!gameState.isRunning) return;
+
+            // 똥 생성
+            if (Math.random() < gameState.spawnRate) {
+                createPoop();
+            }
+
+            // 파워업 생성
+            if (Math.random() < gameState.powerUpRate) {
+                createPowerUp();
+            }
+
+            // 구름 생성
+            if (Math.random() < 0.01) {
+                createCloud();
+            }
+
+            // 똥 이동
+            gameObjects.poops.forEach((poop, index) => {
+                poop.y += gameState.speed;
+                poop.element.style.top = poop.y + 'px';
+
+                if (poop.y > 600) {
+                    poop.element.remove();
+                    gameObjects.poops.splice(index, 1);
+                    gameState.score += 10;
+                    gameElements.scoreDisplay.textContent = gameState.score;
+                }
+            });
+
+            // 파워업 이동
+            gameObjects.powerUps.forEach((powerUp, index) => {
+                powerUp.y += gameState.speed * 0.8;
+                powerUp.element.style.top = powerUp.y + 'px';
+
+                if (powerUp.y > 600) {
+                    powerUp.element.remove();
+                    gameObjects.powerUps.splice(index, 1);
+                }
+            });
+
+            checkCollisions();
+
+            // 난이도 증가
+            if (gameState.score > 0 && gameState.score % 200 === 0) {
+                gameState.speed += 0.1;
+                gameState.spawnRate += 0.002;
+            }
+
+            requestAnimationFrame(updateGame);
+        }
+
+        function startGame() {
+            gameState = {
+                isRunning: true,
+                score: 0,
+                lives: 3,
+                playerPosition: 180,
+                speed: 2,
+                spawnRate: 0.02,
+                powerUpRate: 0.005
+            };
+
+            gameElements.scoreDisplay.textContent = '0';
+            gameElements.livesDisplay.textContent = '3';
+            gameElements.startScreen.style.display = 'none';
+            gameElements.gameOver.style.display = 'none';
+
+            // 기존 오브젝트들 제거
+            gameObjects.poops.forEach(poop => poop.element.remove());
+            gameObjects.powerUps.forEach(powerUp => powerUp.element.remove());
+            gameObjects.poops = [];
+            gameObjects.powerUps = [];
+
+            updatePlayerPosition();
+            updateGame();
+        }
+
+        function endGame() {
+            gameState.isRunning = false;
+            gameElements.finalScore.textContent = gameState.score;
+            gameElements.gameOver.style.display = 'block';
+        }
+
+        function restartGame() {
+            startGame();
+        }
+
+        // 초기 구름 생성
+        for (let i = 0; i < 3; i++) {
+            setTimeout(createCloud, i * 5000);
+        }
+    </script>
+</body>
+</html>
