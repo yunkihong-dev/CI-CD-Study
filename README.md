@@ -1,6 +1,7 @@
 # Spring Boot CI/CD with Jenkins & Docker 🚀
 
 Jenkins를 활용한 Spring Boot 애플리케이션 자동화 빌드 파이프라인 구축
+<img width="1010" height="320" alt="image" src="https://github.com/user-attachments/assets/55cbbf72-596d-4b0b-819f-8a15feeded90" />
 
 ## 🎯 프로젝트 목표
 
