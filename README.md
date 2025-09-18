@@ -4,6 +4,33 @@
 
 ---
 
+## 👥팀원
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/Jsumin07">
+        <img src="https://github.com/Jsumin07.png" width="100px;" alt="전수민"/><br />
+        <sub><b>전수민</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/0-zoo">
+        <img src="https://github.com/0-zoo.png" width="100px;" alt="이영주"/><br />
+        <sub><b>이영주</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/yunkihong-dev">
+        <img src="https://github.com/yunkihong-dev.png" width="100px;" alt="홍윤기"/><br />
+        <sub><b>홍윤기</b></sub>
+      </a>
+    </td>
+  </tr>
+</table>
+
+
+---
+
 ## 1. 개요
 
 ### 목적
