@@ -91,7 +91,7 @@ jobs:
         with:
           host: 113.198.66.75
           username: ubuntu
-          port: 19201 
+          port: 19193 
           key: ${{ secrets.SSH_KEY }}
           command_timeout: 10m
           script: |
