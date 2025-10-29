@@ -7,8 +7,9 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
+      contents: read      
+      packages: write
       id-token: write   # keyless 서명용
-      packages: write   # GHCR push 권한
     env:
       IMAGE: ghcr.io/${{ github.repository_owner }}/step10-cicd
 
