@@ -7,7 +7,6 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
-      contents: read      
       packages: write
       id-token: write   # keyless 서명용
     env:
@@ -83,4 +82,22 @@ jobs:
           ls -la
           echo "IMAGE=${{ env.IMAGE }} DIGEST=${DIGEST}"
           cosign attest --yes --predicate sbom.json --type cyclonedx "${{ env.IMAGE }}@${DIGEST}"
-
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 113.198.66.75
+          username: ubuntu
+          port: 19201 
+          key: ${{ secrets.SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            OWNER_LC=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
+            IMAGE="ghcr.io/${OWNER_LC}/application"
+            docker login ghcr.io -u '${{ github.actor }}' -p '${{ secrets.G_TOKEN }}'
+            docker pull "${IMAGE}:sha-${{ github.sha }}"
+            docker rm -f app || true
+            docker run -d --name app -p 8080:8080 "${IMAGE}:sha-${{ github.sha }}"
