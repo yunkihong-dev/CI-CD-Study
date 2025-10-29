@@ -28,7 +28,7 @@ jobs:
         uses: docker/build-push-action@v6
         id: push
         with:
-          context: .
+          context: ./step10-CICD
           push: true
           tags: |
             ${{ env.IMAGE }}:latest
