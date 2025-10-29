@@ -4,6 +4,7 @@ FROM maven:3.9-eclipse-temurin-17 AS builder
 WORKDIR /app
 
 # Maven 캐싱 최적화를 위해 pom.xml 먼저 복사
+
 COPY pom.xml .
 RUN mvn dependency:go-offline
 
