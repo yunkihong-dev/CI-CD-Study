@@ -78,6 +78,7 @@ jobs:
         env:
           DIGEST: ${{ steps.push.outputs.digest }}
         run: |
-          cosign attest --yes \
-            --predicate sbom.json \
-            --type cyclonedx \
+          ls -la
+          echo "IMAGE=${{ env.IMAGE }} DIGEST=${DIGEST}"
+          cosign attest --yes --predicate sbom.json --type cyclonedx "${{ env.IMAGE }}@${DIGEST}"
+
