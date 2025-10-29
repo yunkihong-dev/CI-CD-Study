@@ -2,15 +2,17 @@ name: Build and Push Image
 on:
   push:
     branches: [ main ]
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
-      id-token: write # keyless 서명용
-      packages: write # GHCR push 권한
+      id-token: write   # keyless 서명용
+      packages: write   # GHCR push 권한
     env:
       IMAGE: ghcr.io/${{ github.repository_owner }}/step10-cicd
-       steps:
+
+    steps:
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -40,7 +42,6 @@ jobs:
             TEAM=chathongpt
             COLOR=${{ secrets.TEAM_COLOR }}
 
-      # Trivy로 빌드된 이미지 scan → 취약점 발견 시 실패 (보안 게이트 역할)
       - name: Run Trivy vulnerability scan
         uses: aquasecurity/trivy-action@0.30.0
         with:
@@ -49,7 +50,6 @@ jobs:
           severity: "CRITICAL,HIGH"
           exit-code: 1
 
-      # CycloneDX 포맷으로 SBOM 생성
       - name: Generate SBOM with Trivy
         uses: aquasecurity/trivy-action@0.30.0
         with:
@@ -61,7 +61,6 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3
 
-      # 이미지 서명 (keyless)
       - name: Sign Container Image
         env:
           DIGEST: ${{ steps.push.outputs.digest }}
@@ -69,8 +68,6 @@ jobs:
           cosign sign --yes \
             ${{ env.IMAGE }}@${DIGEST}
 
-      # sbom.json 파일을 이미지에 증명용으로 첨부
-      # 이미지 내부에 GHCR 메타데이터로 구성요소들이 남아있음
       - name: Attest SBOM
         env:
           DIGEST: ${{ steps.push.outputs.digest }}
@@ -78,4 +75,3 @@ jobs:
           cosign attest --yes \
             --predicate sbom.json \
             --type cyclonedx \
-            ${{ env.IMAGE }}@${DIGEST}
