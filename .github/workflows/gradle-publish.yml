@@ -9,7 +9,7 @@ jobs:
       id-token: write # keyless 서명용
       packages: write # GHCR push 권한
     env:
-      IMAGE: ghcr.io/${{ github.repository_owner }}/application
+      IMAGE: ghcr.io/${{ github.repository_owner }}/step10-cicd
     steps:
       - name: Checkout
         uses: actions/checkout@v4
